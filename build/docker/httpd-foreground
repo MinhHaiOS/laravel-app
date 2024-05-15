@@ -1,0 +1,18 @@
+#!/bin/sh
+
+# Apache gets grumpy about PID files pre-existing
+rm -f /usr/local/apache2/logs/httpd.pid
+
+# Clear cache view and config
+php artisan config:clear
+php artisan view:clear
+php artisan cache:clear
+
+php /app/artisan queue:work  --timeout=900 & > /proc/1/fd/1 2>/proc/1/fd/2
+
+#check OS
+uname -a
+
+crond -f &
+
+exec httpd -DFOREGROUND

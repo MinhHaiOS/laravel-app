@@ -1,0 +1,62 @@
+services:
+    db:
+        image: mysql:8.0.36-bookworm
+        container_name: db
+        environment:
+            MYSQL_ROOT_PASSWORD: root
+            MYSQL_DATABASE: laravel-app
+        volumes:
+            - ./mysql-data:/var/lib/mysql
+            - ./build/docker/mysql/my-custom.cnf:/etc/mysql/conf.d/my-custom.cnf
+            - ./build/docker/sql/:/docker-entrypoint-initdb.d/
+        networks:
+            - my-app-network
+        command: mysqld --user=root
+        healthcheck:
+            test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+            timeout: 20s
+            retries: 10
+            start_period: 30s
+        ports:
+            - "3307:3306"
+        restart: always
+    phpmyadmin:
+        image: phpmyadmin:latest
+        container_name: phpmyadmin
+        environment:
+            PMA_HOST: db
+            PMA_PORT: 3306
+            PMA_USER: root
+            PMA_PASSWORD: root
+            MYSQL_ROOT_PASSWORD: root
+        restart: always
+        ports:
+            - "8081:80"
+        networks:
+            - my-app-network
+        depends_on:
+            db:
+                condition: service_healthy
+    app:
+        build:
+            context: .
+            dockerfile: ./build/docker/Dockerfile
+        image: app:1.0.0
+        container_name: app
+        env_file:
+            - .env.docker
+        volumes:
+            - ./storage:/app/storage
+        working_dir: /app
+        networks:
+            - my-app-network
+        restart: always
+        depends_on:
+            db:
+                condition: service_healthy
+        ports:
+            - "8080:80"
+            - "8443:443"
+networks:
+    my-app-network:
+        driver: bridge
